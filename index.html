@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Math Culture Festival · Roundness Game</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --ink: #1f2a44;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-soft: rgba(37, 99, 235, 0.18);
+      --grid: #d6dbe7;
+      --dot: #3b4252;
+      --dot-on: #f97316;
+      --shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(980px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 880px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .board {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .board h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .board p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .canvas-wrap {
+      width: min(560px, 100%);
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      touch-action: manipulation;
+    }
+
+    .dashboard {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 520px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: #f9fafb;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .card .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .score {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(14, 165, 233, 0.12));
+      border: 1px solid rgba(37, 99, 235, 0.3);
+    }
+
+    .score .value {
+      font-size: 28px;
+      color: var(--accent);
+    }
+
+    button {
+      border: none;
+      background: var(--accent);
+      color: white;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 10px 18px rgba(37, 99, 235, 0.25);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 22px rgba(37, 99, 235, 0.32);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .footer {
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="board">
+      <h1>Math Culture Festival · 圆润度挑战</h1>
+      <p>点击格点选点，系统自动计算凸包的周长、面积与圆润度 $P^2/A$。</p>
+      <div class="canvas-wrap">
+        <svg id="grid" viewBox="0 0 1000 1000" aria-label="9x9 lattice grid"></svg>
+      </div>
+    </section>
+
+    <section class="dashboard">
+      <div class="stats">
+        <div class="card">
+          <h3>Selected Points</h3>
+          <div class="value" id="selectedCount">0</div>
+        </div>
+        <div class="card">
+          <h3>Perimeter (P)</h3>
+          <div class="value" id="perimeter">Need more points</div>
+        </div>
+        <div class="card">
+          <h3>Area (A)</h3>
+          <div class="value" id="area">Need more points</div>
+        </div>
+        <div class="card score">
+          <h3>Roundness (P²/A)</h3>
+          <div class="value" id="roundness">Need more points</div>
+        </div>
+      </div>
+      <button id="clearBtn">Clear All</button>
+      <div class="footer">提示：至少选择 3 个点才能形成多边形。</div>
+    </section>
+  </div>
+
+  <script>
+    const gridSize = 9;
+    const svg = document.getElementById("grid");
+    const selectedCountEl = document.getElementById("selectedCount");
+    const perimeterEl = document.getElementById("perimeter");
+    const areaEl = document.getElementById("area");
+    const roundnessEl = document.getElementById("roundness");
+    const clearBtn = document.getElementById("clearBtn");
+
+    const padding = 90;
+    const size = 1000;
+    const step = (size - padding * 2) / (gridSize - 1);
+    const points = [];
+    const selected = new Set();
+
+    const hullPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    hullPath.setAttribute("fill", "var(--accent-soft)");
+    hullPath.setAttribute("stroke", "var(--accent)");
+    hullPath.setAttribute("stroke-width", "10");
+    hullPath.setAttribute("stroke-linejoin", "round");
+    hullPath.setAttribute("stroke-linecap", "round");
+
+    function toKey(x, y) {
+      return `${x},${y}`;
+    }
+
+    function toSvgPoint(x, y) {
+      return {
+        x: padding + x * step,
+        y: padding + y * step,
+      };
+    }
+
+    function buildGrid() {
+      svg.innerHTML = "";
+      const gridGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      const lineColor = getComputedStyle(document.documentElement).getPropertyValue("--grid").trim();
+
+      for (let i = 0; i < gridSize; i += 1) {
+        const start = toSvgPoint(0, i);
+        const end = toSvgPoint(gridSize - 1, i);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", start.x);
+        line.setAttribute("y1", start.y);
+        line.setAttribute("x2", end.x);
+        line.setAttribute("y2", end.y);
+        line.setAttribute("stroke", lineColor);
+        line.setAttribute("stroke-width", "2");
+        gridGroup.appendChild(line);
+      }
+
+      for (let i = 0; i < gridSize; i += 1) {
+        const start = toSvgPoint(i, 0);
+        const end = toSvgPoint(i, gridSize - 1);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", start.x);
+        line.setAttribute("y1", start.y);
+        line.setAttribute("x2", end.x);
+        line.setAttribute("y2", end.y);
+        line.setAttribute("stroke", lineColor);
+        line.setAttribute("stroke-width", "2");
+        gridGroup.appendChild(line);
+      }
+
+      svg.appendChild(gridGroup);
+      svg.appendChild(hullPath);
+
+      points.length = 0;
+      for (let y = 0; y < gridSize; y += 1) {
+        for (let x = 0; x < gridSize; x += 1) {
+          const pos = toSvgPoint(x, y);
+          const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          dot.setAttribute("cx", pos.x);
+          dot.setAttribute("cy", pos.y);
+          dot.setAttribute("r", "16");
+          dot.setAttribute("fill", "var(--dot)");
+          dot.setAttribute("data-x", x);
+          dot.setAttribute("data-y", y);
+          dot.style.cursor = "pointer";
+          dot.addEventListener("click", () => togglePoint(x, y, dot));
+          dot.addEventListener("touchstart", (event) => {
+            event.preventDefault();
+            togglePoint(x, y, dot);
+          });
+          points.push({ x, y, dot });
+          svg.appendChild(dot);
+        }
+      }
+    }
+
+    function togglePoint(x, y, dot) {
+      const key = toKey(x, y);
+      if (selected.has(key)) {
+        selected.delete(key);
+        dot.setAttribute("fill", "var(--dot)");
+      } else {
+        selected.add(key);
+        dot.setAttribute("fill", "var(--dot-on)");
+      }
+      updateStats();
+    }
+
+    function cross(o, a, b) {
+      return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    }
+
+    function convexHull(pointsList) {
+      if (pointsList.length <= 1) return pointsList.slice();
+      const sorted = pointsList.slice().sort((p1, p2) => (p1.x === p2.x ? p1.y - p2.y : p1.x - p2.x));
+      const lower = [];
+      for (const p of sorted) {
+        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+          lower.pop();
+        }
+        lower.push(p);
+      }
+      const upper = [];
+      for (let i = sorted.length - 1; i >= 0; i -= 1) {
+        const p = sorted[i];
+        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+          upper.pop();
+        }
+        upper.push(p);
+      }
+      upper.pop();
+      lower.pop();
+      return lower.concat(upper);
+    }
+
+    function polygonArea(poly) {
+      let sum = 0;
+      for (let i = 0; i < poly.length; i += 1) {
+        const next = (i + 1) % poly.length;
+        sum += poly[i].x * poly[next].y - poly[next].x * poly[i].y;
+      }
+      return Math.abs(sum) / 2;
+    }
+
+    function polygonPerimeter(poly) {
+      let sum = 0;
+      for (let i = 0; i < poly.length; i += 1) {
+        const next = (i + 1) % poly.length;
+        const dx = poly[i].x - poly[next].x;
+        const dy = poly[i].y - poly[next].y;
+        sum += Math.hypot(dx, dy);
+      }
+      return sum;
+    }
+
+    function drawHull(hull) {
+      if (hull.length < 3) {
+        hullPath.setAttribute("d", "");
+        return;
+      }
+      const path = hull
+        .map((pt, index) => {
+          const svgPt = toSvgPoint(pt.x, pt.y);
+          return `${index === 0 ? "M" : "L"} ${svgPt.x} ${svgPt.y}`;
+        })
+        .join(" ");
+      hullPath.setAttribute("d", `${path} Z`);
+    }
+
+    function formatValue(value) {
+      return Number.isFinite(value) ? value.toFixed(2) : "Need more points";
+    }
+
+    function updateStats() {
+      const selectedPoints = Array.from(selected).map((key) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y };
+      });
+
+      selectedCountEl.textContent = selectedPoints.length;
+
+      if (selectedPoints.length < 3) {
+        perimeterEl.textContent = "Need more points";
+        areaEl.textContent = "Need more points";
+        roundnessEl.textContent = "Need more points";
+        drawHull([]);
+        return;
+      }
+
+      const hull = convexHull(selectedPoints);
+      drawHull(hull);
+      const area = polygonArea(hull);
+      const perimeter = polygonPerimeter(hull);
+      const roundness = area === 0 ? Infinity : (perimeter * perimeter) / area;
+
+      perimeterEl.textContent = formatValue(perimeter);
+      areaEl.textContent = formatValue(area);
+      roundnessEl.textContent = Number.isFinite(roundness) ? roundness.toFixed(2) : "Need more points";
+    }
+
+    clearBtn.addEventListener("click", () => {
+      selected.clear();
+      points.forEach(({ dot }) => dot.setAttribute("fill", "var(--dot)"));
+      updateStats();
+    });
+
+    buildGrid();
+    updateStats();
+  </script>
+</body>
+</html>
