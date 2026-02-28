@@ -195,6 +195,10 @@
           <h3>Roundness (P²/A)</h3>
           <div class="value" id="roundness">Need more points</div>
         </div>
+        <div class="card score">
+          <h3>Score</h3>
+          <div class="value" id="score">Need more points</div>
+        </div>
       </div>
       <button id="clearBtn">Clear All</button>
       <div class="footer">提示：至少选择 3 个点才能形成多边形。</div>
@@ -208,6 +212,7 @@
     const perimeterEl = document.getElementById("perimeter");
     const areaEl = document.getElementById("area");
     const roundnessEl = document.getElementById("roundness");
+    const scoreEl = document.getElementById("score");
     const clearBtn = document.getElementById("clearBtn");
 
     const padding = 90;
@@ -275,7 +280,7 @@
           const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
           dot.setAttribute("cx", pos.x);
           dot.setAttribute("cy", pos.y);
-          dot.setAttribute("r", "28");
+          dot.setAttribute("r", "24");
           dot.setAttribute("fill", "var(--dot)");
           dot.setAttribute("data-x", x);
           dot.setAttribute("data-y", y);
@@ -368,6 +373,13 @@
       return Number.isFinite(value) ? value.toFixed(2) : "Need more points";
     }
 
+    function calculateScore(roundness) {
+      if (!Number.isFinite(roundness)) return NaN;
+      if (roundness >= 16.5) return 0;
+      if (roundness >= 13.3) return -10 * (roundness - 13.3) + 32;
+      return -300 * (roundness - 13.3) + 32;
+    }
+
     function updateStats() {
       const selectedPoints = Array.from(selected).map((key) => {
         const [x, y] = key.split(",").map(Number);
@@ -380,6 +392,7 @@
         perimeterEl.textContent = "Need more points";
         areaEl.textContent = "Need more points";
         roundnessEl.textContent = "Need more points";
+        scoreEl.textContent = "Need more points";
         drawHull([]);
         return;
       }
@@ -389,10 +402,12 @@
       const area = polygonArea(hull);
       const perimeter = polygonPerimeter(hull);
       const roundness = area === 0 ? Infinity : (perimeter * perimeter) / area;
+      const score = calculateScore(roundness);
 
       perimeterEl.textContent = formatValue(perimeter);
       areaEl.textContent = formatValue(area);
       roundnessEl.textContent = Number.isFinite(roundness) ? roundness.toFixed(2) : "Need more points";
+      scoreEl.textContent = Number.isFinite(score) ? score.toFixed(2) : "Need more points";
     }
 
     clearBtn.addEventListener("click", () => {
@@ -406,4 +421,3 @@
   </script>
 </body>
 </html>
-
