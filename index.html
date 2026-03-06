@@ -375,9 +375,16 @@
 
     function calculateScore(roundness) {
       if (!Number.isFinite(roundness)) return NaN;
-      if (roundness >= 16.5) return 0;
-      if (roundness >= 13.3) return -10 * (roundness - 13.3) + 32;
-      return -300 * (roundness - 13.3) + 32;
+      if (roundness >= 20) return 3;
+      if (roundness >= 16) return 5;
+      if (roundness >= 15) return 9;
+      if (roundness >= 14) return 12;
+      if (roundness >= 13.3) return 15;
+      if (roundness >= 13.2) return 20;
+      if (roundness >= 13.1) return 25;
+      if (roundness >= 13) return 30;
+      if (roundness >= 12.9) return 35;
+      return 40;
     }
 
     function updateStats() {
@@ -421,3 +428,4 @@
   </script>
 </body>
 </html>
+
